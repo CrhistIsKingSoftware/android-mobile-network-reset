@@ -36,6 +36,10 @@ The app provides a guided approach to reset your mobile network:
 
 - Android 8.0 (API level 26) or higher
 - Device with telephony capabilities (mobile network support)
+- Android Studio Arctic Fox or newer (for development)
+- JDK 17 or higher (for building)
+
+**Note for CI/CD**: Building this project requires access to Google Maven Repository (dl.google.com) and Gradle repositories.
 
 ## Installation
 

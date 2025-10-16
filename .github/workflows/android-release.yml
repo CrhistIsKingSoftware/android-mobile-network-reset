@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+  release:
+    types: [published]
 
 jobs:
   release:
@@ -28,11 +30,17 @@ jobs:
 
     - name: Get version from tag
       id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      run: |
+        if [ "${{ github.event_name }}" == "release" ]; then
+          echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+        else
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
 
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
+      if: github.event_name == 'push'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -41,12 +49,24 @@ jobs:
         draft: false
         prerelease: false
 
-    - name: Upload Release APK
+    - name: Upload Release APK (for tag push)
       uses: actions/upload-release-asset@v1
+      if: github.event_name == 'push'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: app/build/outputs/apk/release/app-release-unsigned.apk
+        asset_name: mobile-network-reset-${{ steps.get_version.outputs.VERSION }}.apk
+        asset_content_type: application/vnd.android.package-archive
+
+    - name: Upload Release APK (for release event)
+      uses: actions/upload-release-asset@v1
+      if: github.event_name == 'release'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
         asset_path: app/build/outputs/apk/release/app-release-unsigned.apk
         asset_name: mobile-network-reset-${{ steps.get_version.outputs.VERSION }}.apk
         asset_content_type: application/vnd.android.package-archive

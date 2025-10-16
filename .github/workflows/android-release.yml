@@ -6,6 +6,12 @@ on:
       - 'v*'
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag/version to release (e.g., v1.0.0)'
+        required: true
+        type: string
 
 jobs:
   release:
@@ -33,6 +39,8 @@ jobs:
       run: |
         if [ "${{ github.event_name }}" == "release" ]; then
           echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+        elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "VERSION=${{ inputs.tag }}" >> $GITHUB_OUTPUT
         else
           echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
         fi
@@ -40,18 +48,18 @@ jobs:
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ github.ref }}
+        tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
         release_name: Release ${{ steps.get_version.outputs.VERSION }}
         draft: false
         prerelease: false
 
-    - name: Upload Release APK (for tag push)
+    - name: Upload Release APK (for tag push or manual dispatch)
       uses: actions/upload-release-asset@v1
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:

@@ -67,6 +67,8 @@ The app provides a guided approach to reset your mobile network:
 
 Download the latest APK from the [Releases](https://github.com/CrhistIsKingSoftware/android-mobile-network-reset/releases) page.
 
+**Note**: The APK is signed with a debug certificate (suitable for open-source projects). You may need to enable "Install from Unknown Sources" on your device to install it.
+
 ## Usage
 
 1. Open the **Mobile Network Reset** app
@@ -184,6 +186,19 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is open source and available under the MIT License.
+
+## Troubleshooting
+
+### APK Installation Issues
+
+If you encounter "invalid APK" or installation errors:
+
+1. **Ensure you have the latest APK**: Download from the [Releases](https://github.com/CrhistIsKingSoftware/android-mobile-network-reset/releases) page
+2. **Enable installation from unknown sources**: Required for apps not from Play Store
+3. **Check Android version**: Requires Android 8.0 (API 26) or higher
+4. **Verify device compatibility**: Device must have mobile network (SIM card) support
+
+For more details about APK signing and build configuration, see [APK_SIGNING_FIX.md](APK_SIGNING_FIX.md).
 
 ## Support
 

@@ -2,6 +2,16 @@
 
 An Android application designed to help users in areas with poor mobile network connectivity (like some regions in Brazil) by automating the network operator reset process.
 
+> 🚀 **NEW**: Now supports **non-rooted devices** using Accessibility Service! See the [Quick Setup Guide](QUICK_SETUP_GUIDE.md) to get started.
+
+## Quick Links
+
+- 📖 [Quick Setup Guide](QUICK_SETUP_GUIDE.md) - Get started with accessibility service
+- 🔧 [Technical Documentation](ACCESSIBILITY_SERVICE.md) - How the service works
+- 🛡️ [Security Summary](SECURITY_SUMMARY.md) - Security analysis
+- 💡 [Implementation Details](IMPLEMENTATION.md) - Architecture and design
+- 🤝 [Contributing Guide](CONTRIBUTING.md) - How to contribute
+
 ## Problem Statement
 
 Sometimes mobile networks fail to properly connect when using data networks on Android devices. This is particularly noticeable in regions where it's difficult to find nearby mobile operator towers. A manual workaround exists that involves:

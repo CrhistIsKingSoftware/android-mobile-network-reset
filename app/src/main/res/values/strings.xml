@@ -13,6 +13,6 @@
     <string name="step_2">2. Scans for available networks</string>
     <string name="step_3">3. Selects the first available network</string>
     <string name="step_4">4. Re-enables automatic network selection</string>
-    <string name="note">Note: This app requires system-level permissions and may need to be installed as a system app or with elevated permissions to function properly on most devices.</string>
+    <string name="note">Note: This app attempts to automate the network reset process. On devices with system permissions (rooted devices or system apps), the process is fully automated. On regular devices, the app will guide you through the manual steps. Location permission is required for network scanning.</string>
     <string name="open_settings">Open Network Settings</string>
 </resources>

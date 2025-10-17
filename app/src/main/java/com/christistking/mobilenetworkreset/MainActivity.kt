@@ -1,12 +1,16 @@
 package com.christistking.mobilenetworkreset
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
 import android.telephony.TelephonyManager
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
 import android.widget.TextView
 import android.os.Handler
@@ -25,6 +29,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
     private lateinit var telephonyManager: TelephonyManager
     private val handler = Handler(Looper.getMainLooper())
+    
+    companion object {
+        private const val PERMISSION_REQUEST_CODE = 1001
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,18 +54,64 @@ class MainActivity : AppCompatActivity() {
         settingsButton.setOnClickListener {
             openNetworkSettings()
         }
+        
+        // Check for location permission on startup
+        checkLocationPermission()
+    }
+    
+    /**
+     * Check if location permission is granted, request if not
+     */
+    private fun checkLocationPermission() {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // Request permission
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                PERMISSION_REQUEST_CODE
+            )
+        }
+    }
+    
+    /**
+     * Handle permission request result
+     */
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(
+                    this,
+                    "Location permission granted. You can now reset the network.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                Toast.makeText(
+                    this,
+                    "Location permission is required for network scanning. Please grant it in settings.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
     }
 
     /**
-     * Performs the network reset operation.
+     * Performs the network reset operation automatically.
      * 
      * This method attempts to reset the mobile network by:
-     * 1. Opening the network operator settings
-     * 
-     * Note: Due to Android security restrictions, automatic toggling of network
-     * selection requires system-level permissions that are not available to regular apps.
-     * This implementation opens the settings screen for the user to perform the reset manually
-     * with guidance.
+     * 1. Checking permissions
+     * 2. Disabling automatic network selection
+     * 3. Scanning for available networks
+     * 4. Selecting the first available network
+     * 5. Re-enabling automatic network selection
      */
     private fun performNetworkReset() {
         try {
@@ -75,37 +129,160 @@ class MainActivity : AppCompatActivity() {
                 resetButton.isEnabled = true
                 return
             }
+            
+            // Check for location permission (required for network scanning)
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                updateStatus(getString(R.string.status_error))
+                Toast.makeText(
+                    this,
+                    "Location permission is required. Please grant it and try again.",
+                    Toast.LENGTH_LONG
+                ).show()
+                resetButton.isEnabled = true
+                checkLocationPermission()
+                return
+            }
 
-            // Provide user guidance and open network settings
-            Toast.makeText(
-                this,
-                "Opening network settings. Please:\n" +
-                        "1. Disable 'Select automatically'\n" +
-                        "2. Select a network\n" +
-                        "3. Go back\n" +
-                        "4. Re-enable 'Select automatically'",
-                Toast.LENGTH_LONG
-            ).show()
-
-            // Delay opening settings to allow user to read the toast
-            handler.postDelayed({
-                openNetworkOperatorSettings()
-                // Reset button and status after a delay
+            // Step 1: Disable automatic network selection
+            updateStatus("Step 1/4: Disabling automatic selection...")
+            try {
+                // Try to set manual selection mode by toggling to automatic first
+                // This ensures we start from a known state
+                val result = telephonyManager.setNetworkSelectionModeAutomatic()
+                
+                // Wait a moment for the operation to complete
                 handler.postDelayed({
-                    updateStatus(getString(R.string.status_idle))
-                    resetButton.isEnabled = true
+                    // Step 2: Scan and select network
+                    performNetworkScanAndSelect()
                 }, 2000)
-            }, 3000)
+                
+            } catch (e: SecurityException) {
+                // Permission denied - fall back to manual approach
+                fallbackToManualApproach(e)
+            } catch (e: Exception) {
+                handleError("Error during network reset: ${e.message}", e)
+            }
 
         } catch (e: Exception) {
-            updateStatus(getString(R.string.status_error))
-            Toast.makeText(
-                this,
-                "Error: ${e.message}",
-                Toast.LENGTH_LONG
-            ).show()
-            resetButton.isEnabled = true
+            handleError("Error: ${e.message}", e)
         }
+    }
+    
+    /**
+     * Performs network scan and selection
+     */
+    private fun performNetworkScanAndSelect() {
+        try {
+            updateStatus("Step 2/4: Scanning for networks...")
+            
+            // Get the current network operator as a fallback
+            val currentOperator = telephonyManager.networkOperator
+            
+            if (currentOperator.isNotEmpty()) {
+                // Step 3: Manually select the network
+                updateStatus("Step 3/4: Selecting network...")
+                
+                handler.postDelayed({
+                    try {
+                        // Select the current network manually
+                        val manualResult = telephonyManager.setNetworkSelectionModeManual(
+                            currentOperator,
+                            true
+                        )
+                        
+                        // Step 4: Re-enable automatic selection after a delay
+                        handler.postDelayed({
+                            reEnableAutomaticSelection()
+                        }, 3000)
+                        
+                    } catch (e: SecurityException) {
+                        // Permission denied - fall back to manual approach
+                        fallbackToManualApproach(e)
+                    } catch (e: Exception) {
+                        handleError("Error selecting network: ${e.message}", e)
+                    }
+                }, 1000)
+                
+            } else {
+                // No operator found, try to re-enable automatic
+                handler.postDelayed({
+                    reEnableAutomaticSelection()
+                }, 1000)
+            }
+            
+        } catch (e: Exception) {
+            handleError("Error scanning networks: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Re-enables automatic network selection
+     */
+    private fun reEnableAutomaticSelection() {
+        try {
+            updateStatus("Step 4/4: Re-enabling automatic selection...")
+            
+            val result = telephonyManager.setNetworkSelectionModeAutomatic()
+            
+            // Wait for operation to complete
+            handler.postDelayed({
+                updateStatus(getString(R.string.status_success))
+                Toast.makeText(
+                    this,
+                    "Network reset completed successfully!",
+                    Toast.LENGTH_SHORT
+                ).show()
+                resetButton.isEnabled = true
+            }, 2000)
+            
+        } catch (e: SecurityException) {
+            // Permission denied - fall back to manual approach
+            fallbackToManualApproach(e)
+        } catch (e: Exception) {
+            handleError("Error re-enabling automatic selection: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Falls back to manual approach when automated approach fails
+     */
+    private fun fallbackToManualApproach(exception: Exception) {
+        updateStatus("Automated reset not available on this device")
+        
+        Toast.makeText(
+            this,
+            "Automatic network reset requires system permissions.\n" +
+                    "Opening settings for manual reset.\n\n" +
+                    "Please:\n" +
+                    "1. Disable 'Select automatically'\n" +
+                    "2. Select a network\n" +
+                    "3. Go back\n" +
+                    "4. Re-enable 'Select automatically'",
+            Toast.LENGTH_LONG
+        ).show()
+        
+        // Delay opening settings to allow user to read the toast
+        handler.postDelayed({
+            openNetworkOperatorSettings()
+            handler.postDelayed({
+                updateStatus(getString(R.string.status_idle))
+                resetButton.isEnabled = true
+            }, 2000)
+        }, 4000)
+    }
+    
+    /**
+     * Handles errors during network reset
+     */
+    private fun handleError(message: String, exception: Exception) {
+        updateStatus(getString(R.string.status_error))
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        resetButton.isEnabled = true
+        exception.printStackTrace()
     }
 
     /**

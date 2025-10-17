@@ -88,7 +88,12 @@ class MainActivity : AppCompatActivity() {
         
         // Register broadcast receiver for accessibility service updates
         val filter = IntentFilter(NetworkResetAccessibilityService.BROADCAST_STATUS_UPDATE)
-        registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(statusReceiver, filter)
+        }
         
         // Check for location permission on startup
         checkLocationPermission()

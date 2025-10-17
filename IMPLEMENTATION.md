@@ -15,25 +15,33 @@ The main entry point of the application. It provides:
 
 ### Key Features Implemented
 
-1. **Automatic Network Reset**: Attempts to automate the network reset process
+1. **Accessibility Service Automation (NEW)**: Fully automated network reset for non-rooted devices
+   - Uses Android's Accessibility Service API to navigate Settings UI
+   - Automatically disables/enables "Select automatically"
+   - Selects network operators programmatically
+   - Provides real-time status updates via broadcasts
+   - Works on non-rooted devices with one-time permission grant
+   
+2. **Automatic Network Reset (Direct API)**: Attempts to automate the network reset process
    - Requests location permission at startup
    - Uses TelephonyManager APIs to control network selection
    - Provides step-by-step status updates during the process
    - Falls back to manual guidance if automation fails
    
-2. **Runtime Permission Handling**: Requests ACCESS_FINE_LOCATION permission
+3. **Runtime Permission Handling**: Requests ACCESS_FINE_LOCATION permission
    - Checks permission status at startup
    - Requests permission if not granted
    - Validates permission before attempting network operations
 
-3. **Settings Access**: Direct access to network operator settings (fallback)
+4. **Settings Access**: Direct access to network operator settings (fallback)
    - Opens Android's network operator settings when automation fails
    - Falls back to general wireless settings if operator settings aren't available
 
-3. **User Guidance**: Clear instructions throughout the UI
+5. **User Guidance**: Clear instructions throughout the UI
    - Explains the 4-step process in a card view
    - Shows current status of operations
    - Provides helpful error messages
+   - Displays accessibility service status and setup instructions
 
 ### Android Permissions
 
@@ -48,23 +56,32 @@ The app declares the following permissions in AndroidManifest.xml:
 
 ### Implementation Approach
 
-The app now takes an **automated approach with fallback**:
+The app now takes a **three-tiered approach**:
 
-1. **Primary approach - Automated**: 
+1. **Primary approach - Accessibility Service (NEW)**: 
+   - Uses Android's AccessibilityService API to automate UI interaction
+   - Navigates through Settings app to perform network reset
+   - Finds and clicks on UI elements programmatically
+   - Works on non-rooted devices with user permission
+   - Provides real-time status updates via broadcasts
+   - Requires one-time setup in Accessibility Settings
+
+2. **Secondary approach - Direct API (Rooted/System)**: 
    - Uses TelephonyManager.setNetworkSelectionModeAutomatic() and setNetworkSelectionModeManual()
    - Available since Android API 28 (Android 9.0)
    - Works on rooted devices or when installed as system app
    - Provides real-time status updates through the UI
 
-2. **Fallback approach - Guided manual**:
+3. **Fallback approach - Guided manual**:
    - Activates when SecurityException is caught (permission denied)
    - Opens the correct settings screen (ACTION_NETWORK_OPERATOR_SETTINGS)
    - Provides clear step-by-step guidance via toast message
    - Handles edge cases and fallback scenarios
 
-This dual approach:
-- Attempts full automation where permissions allow
-- Works on all Android devices without requiring root access initially
+This three-tiered approach:
+- Provides full automation for non-rooted devices via Accessibility Service
+- Attempts direct API automation where system permissions allow
+- Works on all Android devices without requiring root access
 - Provides the best user experience within Android's security constraints
 - Maintains security by gracefully handling permission denials
 
@@ -115,16 +132,18 @@ Possible improvements for future versions:
 3. **Auto-trigger**: Detect network failures and prompt user to run reset
 4. **Statistics**: Track success rate and network quality improvements
 5. **Multiple Languages**: Add internationalization support for Portuguese (Brazil) and other languages
-6. **Accessibility Service Alternative**: Use AccessibilityService for devices without system permissions (requires user setup)
+6. **Enhanced Accessibility**: Improve accessibility service to handle more UI variations and languages
+7. **Smart Network Selection**: Use signal strength and network quality to select the best operator
 
 ## Known Limitations
 
-1. Requires system-level permission (MODIFY_PHONE_STATE) for full automation
-2. On non-rooted devices, falls back to manual guided process
-3. Requires manual user interaction in the Settings app on non-rooted devices
-4. Some device manufacturers may restrict access to network operator settings
-5. Effectiveness depends on the specific network conditions and operator availability
-6. Requires Android 9.0 (API 28) or higher
+1. **Accessibility Service**: Requires one-time user setup in Accessibility Settings
+2. **UI Variations**: Accessibility service may need adjustment for different device manufacturers or Android versions
+3. **Language Support**: Text patterns in accessibility service currently target English UI
+4. **Direct API**: Requires system-level permission (MODIFY_PHONE_STATE) for rooted/system apps
+5. Some device manufacturers may restrict access to network operator settings
+6. Effectiveness depends on the specific network conditions and operator availability
+7. Requires Android 9.0 (API 28) or higher
 
 ## CI/CD Pipeline
 

@@ -2,6 +2,16 @@
 
 An Android application designed to help users in areas with poor mobile network connectivity (like some regions in Brazil) by automating the network operator reset process.
 
+> 🚀 **NEW**: Now supports **non-rooted devices** using Accessibility Service! See the [Quick Setup Guide](QUICK_SETUP_GUIDE.md) to get started.
+
+## Quick Links
+
+- 📖 [Quick Setup Guide](QUICK_SETUP_GUIDE.md) - Get started with accessibility service
+- 🔧 [Technical Documentation](ACCESSIBILITY_SERVICE.md) - How the service works
+- 🛡️ [Security Summary](SECURITY_SUMMARY.md) - Security analysis
+- 💡 [Implementation Details](IMPLEMENTATION.md) - Architecture and design
+- 🤝 [Contributing Guide](CONTRIBUTING.md) - How to contribute
+
 ## Problem Statement
 
 Sometimes mobile networks fail to properly connect when using data networks on Android devices. This is particularly noticeable in regions where it's difficult to find nearby mobile operator towers. A manual workaround exists that involves:
@@ -18,22 +28,35 @@ This app simplifies this tedious manual process with a single button press.
 
 ## Features
 
+- **Accessibility Service Automation**: Fully automated network reset for non-rooted devices
 - **One-Tap Network Reset**: Simple button to initiate the network reset process
+- **Multiple Reset Methods**: Direct API (rooted), Accessibility Service (non-rooted), or manual
 - **User Guidance**: Clear instructions and step-by-step guidance
 - **Direct Settings Access**: Quick access to network operator settings
 - **Material Design**: Modern, intuitive user interface
+- **Status Updates**: Real-time feedback during the automated reset process
 
 ## How It Works
 
-The app provides an automated approach to reset your mobile network:
+The app provides multiple automated approaches to reset your mobile network:
 
+### Approach 1: Direct API (Rooted Devices/System Apps)
 1. **Requests location permission**: Required for network scanning
 2. **Disables automatic network selection**: Toggles off auto-select mode programmatically
 3. **Scans for available networks**: Identifies the current network operator
 4. **Selects the network manually**: Connects to the operator manually
 5. **Re-enables automatic network selection**: Returns to auto-select mode
 
-**Note**: On regular (non-rooted) devices, the `MODIFY_PHONE_STATE` permission may not be granted automatically. In such cases, the app will fall back to opening the network settings with step-by-step guidance for manual completion.
+### Approach 2: Accessibility Service (Non-Rooted Devices) - NEW!
+For regular (non-rooted) devices, the app now includes an **Accessibility Service** that automates the manual process:
+
+1. **Enable the accessibility service**: One-time setup in Android Settings
+2. **Automated navigation**: The service navigates through Settings UI automatically
+3. **Toggles network selection**: Disables and re-enables "Select automatically"
+4. **Selects network operator**: Automatically selects an available network
+5. **Completes the cycle**: Returns to automatic selection mode
+
+**Note**: The Accessibility Service requires a one-time permission grant in Android's Accessibility Settings. Once enabled, the app can perform the full network reset automatically without root access.
 
 ## Requirements
 
@@ -75,11 +98,23 @@ Download the latest APK from the [Releases](https://github.com/CrhistIsKingSoftw
 
 ## Usage
 
+### For Non-Rooted Devices (Recommended):
+1. Open the **Mobile Network Reset** app
+2. In the **Accessibility Service** section, tap **"Enable Accessibility Service"**
+3. Find **"Mobile Network Reset"** in the accessibility services list and enable it
+4. Return to the app
+5. Tap **"Automated Reset (via Accessibility)"** button
+6. The app will automatically navigate through Settings and reset your network
+
+### For Rooted Devices/System Apps:
 1. Open the **Mobile Network Reset** app
 2. Read the instructions on the main screen
 3. Tap the **"Reset Network"** button
-4. Follow the on-screen guidance to complete the reset process
-5. Or tap **"Open Network Settings"** to access network settings directly
+4. The app will automatically reset your network using system APIs
+
+### Manual Approach:
+1. Tap **"Open Network Settings"** to access network settings directly
+2. Follow the on-screen guidance to complete the reset process manually
 
 ## Permissions
 
@@ -91,7 +126,7 @@ The app requires the following permissions:
 - `ACCESS_FINE_LOCATION`: To scan for available network operators
 - `ACCESS_COARSE_LOCATION`: Alternative location permission
 
-**Note**: The `MODIFY_PHONE_STATE` permission is a system-level permission. On rooted devices or when installed as a system app, the automated network reset will work fully. On regular devices, the app will fall back to providing guided manual instructions.
+**Note**: The `MODIFY_PHONE_STATE` permission is a system-level permission. On rooted devices or when installed as a system app, the automated network reset will work fully. On regular devices, the app uses an **Accessibility Service** to automate the process through the Settings UI, or can fall back to providing guided manual instructions.
 
 ## Development
 
@@ -175,11 +210,13 @@ git push origin v1.0.0
 
 ## Limitations
 
-- The `MODIFY_PHONE_STATE` permission requires system-level access for full automation
-- On non-rooted devices, the app falls back to guided manual process
+- **Direct API approach**: Requires system-level access (rooted devices or system app installation)
+- **Accessibility Service approach**: Requires one-time permission grant in Accessibility Settings
+- **UI Automation**: Accessibility service may need adjustment if device manufacturer changes Settings UI
 - The app may not work on all devices or Android versions
 - Some device manufacturers may restrict access to network operator settings
 - Requires Android 9.0 (API 28) or higher for the network selection APIs
+- Accessibility service automation depends on Settings UI text patterns and may vary by device language
 
 ## Contributing
 

@@ -1,8 +1,10 @@
 package com.christistking.mobilenetworkreset
 
 import android.Manifest
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
@@ -15,6 +17,7 @@ import com.google.android.material.button.MaterialButton
 import android.widget.TextView
 import android.os.Handler
 import android.os.Looper
+import android.view.accessibility.AccessibilityManager
 
 /**
  * MainActivity for the Mobile Network Reset application.
@@ -26,9 +29,25 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var resetButton: MaterialButton
     private lateinit var settingsButton: MaterialButton
+    private lateinit var accessibilityResetButton: MaterialButton
+    private lateinit var enableAccessibilityButton: MaterialButton
     private lateinit var statusText: TextView
+    private lateinit var accessibilityStatusText: TextView
     private lateinit var telephonyManager: TelephonyManager
+    private lateinit var accessibilityManager: AccessibilityManager
     private val handler = Handler(Looper.getMainLooper())
+    
+    private val statusReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == NetworkResetAccessibilityService.BROADCAST_STATUS_UPDATE) {
+                val status = intent.getStringExtra(NetworkResetAccessibilityService.EXTRA_STATUS)
+                val step = intent.getStringExtra(NetworkResetAccessibilityService.EXTRA_STEP)
+                if (status != null) {
+                    updateStatus(status)
+                }
+            }
+        }
+    }
     
     companion object {
         private const val PERMISSION_REQUEST_CODE = 1001
@@ -41,10 +60,14 @@ class MainActivity : AppCompatActivity() {
         // Initialize views
         resetButton = findViewById(R.id.resetButton)
         settingsButton = findViewById(R.id.settingsButton)
+        accessibilityResetButton = findViewById(R.id.accessibilityResetButton)
+        enableAccessibilityButton = findViewById(R.id.enableAccessibilityButton)
         statusText = findViewById(R.id.statusText)
+        accessibilityStatusText = findViewById(R.id.accessibilityStatusText)
 
-        // Initialize telephony manager
+        // Initialize managers
         telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        accessibilityManager = getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
 
         // Set up button click listeners
         resetButton.setOnClickListener {
@@ -55,8 +78,44 @@ class MainActivity : AppCompatActivity() {
             openNetworkSettings()
         }
         
+        accessibilityResetButton.setOnClickListener {
+            performAccessibilityReset()
+        }
+        
+        enableAccessibilityButton.setOnClickListener {
+            openAccessibilitySettings()
+        }
+        
+        // Register broadcast receiver for accessibility service updates
+        val filter = IntentFilter(NetworkResetAccessibilityService.BROADCAST_STATUS_UPDATE)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(statusReceiver, filter)
+        }
+        
         // Check for location permission on startup
         checkLocationPermission()
+        
+        // Update accessibility service status
+        updateAccessibilityServiceStatus()
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Update accessibility service status when returning to the app
+        updateAccessibilityServiceStatus()
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        // Unregister broadcast receiver
+        try {
+            unregisterReceiver(statusReceiver)
+        } catch (e: Exception) {
+            // Receiver might not be registered
+        }
     }
     
     /**
@@ -319,5 +378,98 @@ class MainActivity : AppCompatActivity() {
      */
     private fun updateStatus(status: String) {
         statusText.text = status
+    }
+    
+    /**
+     * Checks if accessibility service is enabled for this app
+     */
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val enabledServices = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        
+        val colonSplitter = enabledServices.split(":")
+        val serviceName = "${packageName}/${NetworkResetAccessibilityService::class.java.name}"
+        
+        return colonSplitter.any { it.equals(serviceName, ignoreCase = true) }
+    }
+    
+    /**
+     * Updates the accessibility service status display
+     */
+    private fun updateAccessibilityServiceStatus() {
+        val isEnabled = isAccessibilityServiceEnabled()
+        
+        if (isEnabled) {
+            accessibilityStatusText.text = getString(R.string.accessibility_service_enabled)
+            accessibilityResetButton.isEnabled = true
+            enableAccessibilityButton.isEnabled = false
+        } else {
+            accessibilityStatusText.text = getString(R.string.accessibility_service_disabled)
+            accessibilityResetButton.isEnabled = false
+            enableAccessibilityButton.isEnabled = true
+        }
+    }
+    
+    /**
+     * Performs network reset using accessibility service
+     */
+    private fun performAccessibilityReset() {
+        if (!isAccessibilityServiceEnabled()) {
+            Toast.makeText(
+                this,
+                "Please enable the accessibility service first",
+                Toast.LENGTH_LONG
+            ).show()
+            openAccessibilitySettings()
+            return
+        }
+        
+        try {
+            updateStatus(getString(R.string.status_starting_accessibility))
+            accessibilityResetButton.isEnabled = false
+            
+            // First open the network operator settings
+            val settingsIntent = Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS)
+            startActivity(settingsIntent)
+            
+            // Then trigger the accessibility service to start processing
+            handler.postDelayed({
+                val serviceIntent = Intent(this, NetworkResetAccessibilityService::class.java).apply {
+                    action = NetworkResetAccessibilityService.ACTION_START_RESET
+                }
+                startService(serviceIntent)
+                
+                // Re-enable button after a delay
+                handler.postDelayed({
+                    accessibilityResetButton.isEnabled = true
+                }, 30000) // 30 seconds timeout
+            }, 2000) // Wait 2 seconds for settings to open
+            
+        } catch (e: Exception) {
+            handleError("Error starting accessibility reset: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Opens accessibility settings
+     */
+    private fun openAccessibilitySettings() {
+        try {
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            startActivity(intent)
+            Toast.makeText(
+                this,
+                "Find and enable \"Mobile Network Reset\" in the list",
+                Toast.LENGTH_LONG
+            ).show()
+        } catch (e: Exception) {
+            Toast.makeText(
+                this,
+                "Unable to open accessibility settings",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 }

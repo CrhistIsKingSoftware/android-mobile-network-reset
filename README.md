@@ -25,17 +25,21 @@ This app simplifies this tedious manual process with a single button press.
 
 ## How It Works
 
-The app provides a guided approach to reset your mobile network:
+The app provides an automated approach to reset your mobile network:
 
-1. **Disables automatic network selection**: Toggles off auto-select mode
-2. **Scans for available networks**: Searches for nearby mobile operators
-3. **Selects the first available network**: Connects to an available operator
-4. **Re-enables automatic network selection**: Returns to auto-select mode
+1. **Requests location permission**: Required for network scanning
+2. **Disables automatic network selection**: Toggles off auto-select mode programmatically
+3. **Scans for available networks**: Identifies the current network operator
+4. **Selects the network manually**: Connects to the operator manually
+5. **Re-enables automatic network selection**: Returns to auto-select mode
+
+**Note**: On regular (non-rooted) devices, the `MODIFY_PHONE_STATE` permission may not be granted automatically. In such cases, the app will fall back to opening the network settings with step-by-step guidance for manual completion.
 
 ## Requirements
 
-- Android 8.0 (API level 26) or higher
+- Android 9.0 (API level 28) or higher
 - Device with telephony capabilities (mobile network support)
+- Location permission (for network scanning)
 - Android Studio Arctic Fox or newer (for development)
 - JDK 17 or higher (for building)
 
@@ -84,8 +88,10 @@ The app requires the following permissions:
 - `ACCESS_NETWORK_STATE`: To check network connectivity status
 - `CHANGE_NETWORK_STATE`: To modify network settings
 - `MODIFY_PHONE_STATE`: To change network operator selection (system-level permission)
+- `ACCESS_FINE_LOCATION`: To scan for available network operators
+- `ACCESS_COARSE_LOCATION`: Alternative location permission
 
-**Note**: Due to Android security restrictions, the `MODIFY_PHONE_STATE` permission is a system-level permission. Regular apps installed from the Play Store cannot automatically toggle network selection. The app provides guided access to the settings screen where users can perform the reset manually.
+**Note**: The `MODIFY_PHONE_STATE` permission is a system-level permission. On rooted devices or when installed as a system app, the automated network reset will work fully. On regular devices, the app will fall back to providing guided manual instructions.
 
 ## Development
 
@@ -169,9 +175,11 @@ git push origin v1.0.0
 
 ## Limitations
 
-- Due to Android security policies, automatic network operator selection toggling requires system-level permissions
+- The `MODIFY_PHONE_STATE` permission requires system-level access for full automation
+- On non-rooted devices, the app falls back to guided manual process
 - The app may not work on all devices or Android versions
 - Some device manufacturers may restrict access to network operator settings
+- Requires Android 9.0 (API 28) or higher for the network selection APIs
 
 ## Contributing
 
@@ -195,8 +203,9 @@ If you encounter "invalid APK" or installation errors:
 
 1. **Ensure you have the latest APK**: Download from the [Releases](https://github.com/CrhistIsKingSoftware/android-mobile-network-reset/releases) page
 2. **Enable installation from unknown sources**: Required for apps not from Play Store
-3. **Check Android version**: Requires Android 8.0 (API 26) or higher
+3. **Check Android version**: Requires Android 9.0 (API 28) or higher
 4. **Verify device compatibility**: Device must have mobile network (SIM card) support
+5. **Grant location permission**: Required for network scanning when the app requests it
 
 For more details about APK signing and build configuration, see [APK_SIGNING_FIX.md](APK_SIGNING_FIX.md).
 

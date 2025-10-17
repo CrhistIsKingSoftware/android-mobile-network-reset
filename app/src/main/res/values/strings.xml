@@ -15,4 +15,15 @@
     <string name="step_4">4. Re-enables automatic network selection</string>
     <string name="note">Note: This app attempts to automate the network reset process. On devices with system permissions (rooted devices or system apps), the process is fully automated. On regular devices, the app will guide you through the manual steps. Location permission is required for network scanning.</string>
     <string name="open_settings">Open Network Settings</string>
+    
+    <!-- Accessibility Service -->
+    <string name="accessibility_service_description">Allows the Mobile Network Reset app to automatically navigate through Settings to perform network reset operations. This service will interact with the network operator settings on your behalf to toggle automatic network selection.</string>
+    <string name="enable_accessibility_service">Enable Accessibility Service</string>
+    <string name="accessibility_service_status">Accessibility Service Status:</string>
+    <string name="accessibility_service_enabled">✓ Enabled - Automated reset available</string>
+    <string name="accessibility_service_disabled">✗ Disabled - Manual reset required</string>
+    <string name="enable_accessibility_instructions">To enable automated network reset:\n1. Tap \"Enable Accessibility Service\"\n2. Find \"Mobile Network Reset\" in the list\n3. Toggle it ON\n4. Accept the permission prompt\n5. Return to this app</string>
+    <string name="accessibility_reset_button">Automated Reset (via Accessibility)</string>
+    <string name="status_starting_accessibility">Starting automated reset...</string>
+    <string name="status_accessibility_complete">Automated reset complete!</string>
 </resources>

@@ -2,7 +2,10 @@ package com.christistking.mobilenetworkreset
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -23,6 +26,7 @@ class NetworkResetAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var isProcessing = false
     private var currentStep = Step.IDLE
+    private var commandReceiver: BroadcastReceiver? = null
     
     companion object {
         private const val TAG = "NetworkResetA11yService"
@@ -80,6 +84,34 @@ class NetworkResetAccessibilityService : AccessibilityService() {
             notificationTimeout = 100
         }
         serviceInfo = info
+        
+        // Register broadcast receiver to receive commands from MainActivity
+        commandReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                when (intent?.action) {
+                    ACTION_START_RESET -> {
+                        Log.d(TAG, "Starting network reset process")
+                        startProcessing()
+                    }
+                    ACTION_STOP_RESET -> {
+                        Log.d(TAG, "Stopping network reset process")
+                        stopProcessing()
+                    }
+                }
+            }
+        }
+        
+        val filter = IntentFilter().apply {
+            addAction(ACTION_START_RESET)
+            addAction(ACTION_STOP_RESET)
+        }
+        
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(commandReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(commandReceiver, filter)
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -101,6 +133,18 @@ class NetworkResetAccessibilityService : AccessibilityService() {
     override fun onInterrupt() {
         Log.d(TAG, "Service interrupted")
         stopProcessing()
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        // Unregister broadcast receiver
+        commandReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error unregistering receiver", e)
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

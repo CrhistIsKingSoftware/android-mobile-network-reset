@@ -436,10 +436,10 @@ class MainActivity : AppCompatActivity() {
             
             // Then trigger the accessibility service to start processing
             handler.postDelayed({
-                val serviceIntent = Intent(this, NetworkResetAccessibilityService::class.java).apply {
-                    action = NetworkResetAccessibilityService.ACTION_START_RESET
+                val serviceIntent = Intent(NetworkResetAccessibilityService.ACTION_START_RESET).apply {
+                    setPackage(packageName)
                 }
-                startService(serviceIntent)
+                sendBroadcast(serviceIntent)
                 
                 // Re-enable button after a delay
                 handler.postDelayed({

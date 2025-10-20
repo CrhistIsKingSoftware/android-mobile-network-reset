@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
 import android.telephony.TelephonyManager
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -36,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var telephonyManager: TelephonyManager
     private lateinit var accessibilityManager: AccessibilityManager
     private val handler = Handler(Looper.getMainLooper())
+    private var isReceiverRegistered = false
     
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -86,15 +88,6 @@ class MainActivity : AppCompatActivity() {
             openAccessibilitySettings()
         }
         
-        // Register broadcast receiver for accessibility service updates
-        val filter = IntentFilter(NetworkResetAccessibilityService.BROADCAST_STATUS_UPDATE)
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("UnspecifiedRegisterReceiverFlag")
-            registerReceiver(statusReceiver, filter)
-        }
-        
         // Check for location permission on startup
         checkLocationPermission()
         
@@ -104,17 +97,38 @@ class MainActivity : AppCompatActivity() {
     
     override fun onResume() {
         super.onResume()
+        
+        // Register broadcast receiver for accessibility service updates
+        if (!isReceiverRegistered) {
+            try {
+                val filter = IntentFilter(NetworkResetAccessibilityService.BROADCAST_STATUS_UPDATE)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                } else {
+                    @Suppress("UnspecifiedRegisterReceiverFlag")
+                    registerReceiver(statusReceiver, filter)
+                }
+                isReceiverRegistered = true
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error registering receiver", e)
+            }
+        }
+        
         // Update accessibility service status when returning to the app
         updateAccessibilityServiceStatus()
     }
     
-    override fun onDestroy() {
-        super.onDestroy()
+    override fun onPause() {
+        super.onPause()
+        
         // Unregister broadcast receiver
-        try {
-            unregisterReceiver(statusReceiver)
-        } catch (e: Exception) {
-            // Receiver might not be registered
+        if (isReceiverRegistered) {
+            try {
+                unregisterReceiver(statusReceiver)
+                isReceiverRegistered = false
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error unregistering receiver", e)
+            }
         }
     }
     

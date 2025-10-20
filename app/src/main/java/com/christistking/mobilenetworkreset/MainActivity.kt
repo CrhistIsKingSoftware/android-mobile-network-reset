@@ -34,8 +34,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var enableAccessibilityButton: MaterialButton
     private lateinit var statusText: TextView
     private lateinit var accessibilityStatusText: TextView
-    private lateinit var telephonyManager: TelephonyManager
-    private lateinit var accessibilityManager: AccessibilityManager
+    private var telephonyManager: TelephonyManager? = null
+    private var accessibilityManager: AccessibilityManager? = null
     private val handler = Handler(Looper.getMainLooper())
     private var isReceiverRegistered = false
     
@@ -52,47 +52,145 @@ class MainActivity : AppCompatActivity() {
     }
     
     companion object {
+        private const val TAG = "MainActivity"
         private const val PERMISSION_REQUEST_CODE = 1001
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        // Initialize views
-        resetButton = findViewById(R.id.resetButton)
-        settingsButton = findViewById(R.id.settingsButton)
-        accessibilityResetButton = findViewById(R.id.accessibilityResetButton)
-        enableAccessibilityButton = findViewById(R.id.enableAccessibilityButton)
-        statusText = findViewById(R.id.statusText)
-        accessibilityStatusText = findViewById(R.id.accessibilityStatusText)
-
-        // Initialize managers using type-safe getSystemService
-        telephonyManager = getSystemService(TelephonyManager::class.java)
-        accessibilityManager = getSystemService(AccessibilityManager::class.java)
-
-        // Set up button click listeners
-        resetButton.setOnClickListener {
-            performNetworkReset()
-        }
-
-        settingsButton.setOnClickListener {
-            openNetworkSettings()
-        }
         
-        accessibilityResetButton.setOnClickListener {
-            performAccessibilityReset()
+        // Set up global exception handler to log crashes
+        setupCrashLogging()
+        
+        try {
+            Log.d(TAG, "onCreate: Starting MainActivity initialization")
+            setContentView(R.layout.activity_main)
+
+            // Initialize views with error handling
+            try {
+                resetButton = findViewById(R.id.resetButton)
+                settingsButton = findViewById(R.id.settingsButton)
+                accessibilityResetButton = findViewById(R.id.accessibilityResetButton)
+                enableAccessibilityButton = findViewById(R.id.enableAccessibilityButton)
+                statusText = findViewById(R.id.statusText)
+                accessibilityStatusText = findViewById(R.id.accessibilityStatusText)
+                Log.d(TAG, "onCreate: All views initialized successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "onCreate: Error initializing views", e)
+                throw e
+            }
+
+            // Initialize managers with null safety checks
+            try {
+                telephonyManager = getSystemService(TelephonyManager::class.java)
+                if (telephonyManager == null) {
+                    Log.e(TAG, "onCreate: TelephonyManager is null - telephony service unavailable")
+                    Toast.makeText(
+                        this,
+                        "Telephony service is unavailable on this device",
+                        Toast.LENGTH_LONG
+                    ).show()
+                } else {
+                    Log.d(TAG, "onCreate: TelephonyManager initialized successfully")
+                }
+                
+                accessibilityManager = getSystemService(AccessibilityManager::class.java)
+                if (accessibilityManager == null) {
+                    Log.e(TAG, "onCreate: AccessibilityManager is null - accessibility service unavailable")
+                } else {
+                    Log.d(TAG, "onCreate: AccessibilityManager initialized successfully")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "onCreate: Error initializing system services", e)
+                Toast.makeText(
+                    this,
+                    "Error initializing system services: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+
+            // Set up button click listeners
+            resetButton.setOnClickListener {
+                try {
+                    performNetworkReset()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in resetButton click", e)
+                    handleError("Error during reset: ${e.message}", e)
+                }
+            }
+
+            settingsButton.setOnClickListener {
+                try {
+                    openNetworkSettings()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in settingsButton click", e)
+                    Toast.makeText(this, "Error opening settings: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            
+            accessibilityResetButton.setOnClickListener {
+                try {
+                    performAccessibilityReset()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in accessibilityResetButton click", e)
+                    handleError("Error during accessibility reset: ${e.message}", e)
+                }
+            }
+            
+            enableAccessibilityButton.setOnClickListener {
+                try {
+                    openAccessibilitySettings()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in enableAccessibilityButton click", e)
+                    Toast.makeText(this, "Error opening accessibility settings: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            
+            // Check for location permission on startup
+            try {
+                checkLocationPermission()
+            } catch (e: Exception) {
+                Log.e(TAG, "onCreate: Error checking location permission", e)
+            }
+            
+            // Update accessibility service status
+            try {
+                updateAccessibilityServiceStatus()
+            } catch (e: Exception) {
+                Log.e(TAG, "onCreate: Error updating accessibility service status", e)
+            }
+            
+            Log.d(TAG, "onCreate: MainActivity initialization completed successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "onCreate: Fatal error during initialization", e)
+            Toast.makeText(
+                this,
+                "Fatal error: ${e.message}\nPlease check logcat for details",
+                Toast.LENGTH_LONG
+            ).show()
+            throw e
         }
-        
-        enableAccessibilityButton.setOnClickListener {
-            openAccessibilitySettings()
+    }
+    
+    /**
+     * Set up crash logging to capture and log any uncaught exceptions
+     */
+    private fun setupCrashLogging() {
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            Log.e(TAG, "=== UNCAUGHT EXCEPTION ===", throwable)
+            Log.e(TAG, "Thread: ${thread.name}")
+            Log.e(TAG, "Exception: ${throwable.javaClass.name}")
+            Log.e(TAG, "Message: ${throwable.message}")
+            Log.e(TAG, "Stack trace:")
+            throwable.stackTrace.forEach { element ->
+                Log.e(TAG, "  at $element")
+            }
+            Log.e(TAG, "=== END UNCAUGHT EXCEPTION ===")
+            
+            // Call the default handler to let the system handle the crash
+            defaultHandler?.uncaughtException(thread, throwable)
         }
-        
-        // Check for location permission on startup
-        checkLocationPermission()
-        
-        // Update accessibility service status
-        updateAccessibilityServiceStatus()
     }
     
     override fun onResume() {
@@ -188,11 +286,26 @@ class MainActivity : AppCompatActivity() {
      */
     private fun performNetworkReset() {
         try {
+            Log.d(TAG, "performNetworkReset: Starting network reset")
             updateStatus(getString(R.string.status_resetting))
             resetButton.isEnabled = false
 
+            // Check if telephonyManager is available
+            if (telephonyManager == null) {
+                Log.e(TAG, "performNetworkReset: TelephonyManager is null")
+                updateStatus(getString(R.string.status_error))
+                Toast.makeText(
+                    this,
+                    "Telephony service is not available on this device",
+                    Toast.LENGTH_LONG
+                ).show()
+                resetButton.isEnabled = true
+                return
+            }
+
             // Check if we have telephony service
-            if (telephonyManager.phoneType == TelephonyManager.PHONE_TYPE_NONE) {
+            if (telephonyManager?.phoneType == TelephonyManager.PHONE_TYPE_NONE) {
+                Log.w(TAG, "performNetworkReset: No telephony service available")
                 updateStatus(getString(R.string.status_error))
                 Toast.makeText(
                     this,
@@ -209,6 +322,7 @@ class MainActivity : AppCompatActivity() {
                     Manifest.permission.ACCESS_FINE_LOCATION
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
+                Log.w(TAG, "performNetworkReset: Location permission not granted")
                 updateStatus(getString(R.string.status_error))
                 Toast.makeText(
                     this,
@@ -222,10 +336,12 @@ class MainActivity : AppCompatActivity() {
 
             // Step 1: Disable automatic network selection
             updateStatus("Step 1/4: Disabling automatic selection...")
+            Log.d(TAG, "performNetworkReset: Step 1 - Disabling automatic selection")
             try {
                 // Try to set manual selection mode by toggling to automatic first
                 // This ensures we start from a known state
-                val result = telephonyManager.setNetworkSelectionModeAutomatic()
+                val result = telephonyManager?.setNetworkSelectionModeAutomatic()
+                Log.d(TAG, "performNetworkReset: setNetworkSelectionModeAutomatic returned: $result")
                 
                 // Wait a moment for the operation to complete
                 handler.postDelayed({
@@ -235,12 +351,15 @@ class MainActivity : AppCompatActivity() {
                 
             } catch (e: SecurityException) {
                 // Permission denied - fall back to manual approach
+                Log.w(TAG, "performNetworkReset: SecurityException - falling back to manual", e)
                 fallbackToManualApproach(e)
             } catch (e: Exception) {
+                Log.e(TAG, "performNetworkReset: Exception during network reset", e)
                 handleError("Error during network reset: ${e.message}", e)
             }
 
         } catch (e: Exception) {
+            Log.e(TAG, "performNetworkReset: Fatal error", e)
             handleError("Error: ${e.message}", e)
         }
     }
@@ -250,22 +369,26 @@ class MainActivity : AppCompatActivity() {
      */
     private fun performNetworkScanAndSelect() {
         try {
+            Log.d(TAG, "performNetworkScanAndSelect: Starting network scan")
             updateStatus("Step 2/4: Scanning for networks...")
             
             // Get the current network operator as a fallback
-            val currentOperator = telephonyManager.networkOperator
+            val currentOperator = telephonyManager?.networkOperator ?: ""
+            Log.d(TAG, "performNetworkScanAndSelect: Current operator: $currentOperator")
             
             if (currentOperator.isNotEmpty()) {
                 // Step 3: Manually select the network
                 updateStatus("Step 3/4: Selecting network...")
+                Log.d(TAG, "performNetworkScanAndSelect: Step 3 - Selecting network")
                 
                 handler.postDelayed({
                     try {
                         // Select the current network manually
-                        val manualResult = telephonyManager.setNetworkSelectionModeManual(
+                        val manualResult = telephonyManager?.setNetworkSelectionModeManual(
                             currentOperator,
                             true
                         )
+                        Log.d(TAG, "performNetworkScanAndSelect: setNetworkSelectionModeManual returned: $manualResult")
                         
                         // Step 4: Re-enable automatic selection after a delay
                         handler.postDelayed({
@@ -274,20 +397,24 @@ class MainActivity : AppCompatActivity() {
                         
                     } catch (e: SecurityException) {
                         // Permission denied - fall back to manual approach
+                        Log.w(TAG, "performNetworkScanAndSelect: SecurityException - falling back to manual", e)
                         fallbackToManualApproach(e)
                     } catch (e: Exception) {
+                        Log.e(TAG, "performNetworkScanAndSelect: Error selecting network", e)
                         handleError("Error selecting network: ${e.message}", e)
                     }
                 }, 1000)
                 
             } else {
                 // No operator found, try to re-enable automatic
+                Log.w(TAG, "performNetworkScanAndSelect: No operator found, re-enabling automatic")
                 handler.postDelayed({
                     reEnableAutomaticSelection()
                 }, 1000)
             }
             
         } catch (e: Exception) {
+            Log.e(TAG, "performNetworkScanAndSelect: Error scanning networks", e)
             handleError("Error scanning networks: ${e.message}", e)
         }
     }
@@ -297,9 +424,11 @@ class MainActivity : AppCompatActivity() {
      */
     private fun reEnableAutomaticSelection() {
         try {
+            Log.d(TAG, "reEnableAutomaticSelection: Re-enabling automatic selection")
             updateStatus("Step 4/4: Re-enabling automatic selection...")
             
-            val result = telephonyManager.setNetworkSelectionModeAutomatic()
+            val result = telephonyManager?.setNetworkSelectionModeAutomatic()
+            Log.d(TAG, "reEnableAutomaticSelection: setNetworkSelectionModeAutomatic returned: $result")
             
             // Wait for operation to complete
             handler.postDelayed({
@@ -310,12 +439,15 @@ class MainActivity : AppCompatActivity() {
                     Toast.LENGTH_SHORT
                 ).show()
                 resetButton.isEnabled = true
+                Log.d(TAG, "reEnableAutomaticSelection: Network reset completed successfully")
             }, 2000)
             
         } catch (e: SecurityException) {
             // Permission denied - fall back to manual approach
+            Log.w(TAG, "reEnableAutomaticSelection: SecurityException - falling back to manual", e)
             fallbackToManualApproach(e)
         } catch (e: Exception) {
+            Log.e(TAG, "reEnableAutomaticSelection: Error re-enabling automatic selection", e)
             handleError("Error re-enabling automatic selection: ${e.message}", e)
         }
     }
@@ -324,6 +456,7 @@ class MainActivity : AppCompatActivity() {
      * Falls back to manual approach when automated approach fails
      */
     private fun fallbackToManualApproach(exception: Exception) {
+        Log.w(TAG, "fallbackToManualApproach: Falling back to manual approach", exception)
         updateStatus("Automated reset not available on this device")
         
         Toast.makeText(
@@ -352,6 +485,7 @@ class MainActivity : AppCompatActivity() {
      * Handles errors during network reset
      */
     private fun handleError(message: String, exception: Exception) {
+        Log.e(TAG, "handleError: $message", exception)
         updateStatus(getString(R.string.status_error))
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
         resetButton.isEnabled = true
@@ -430,23 +564,26 @@ class MainActivity : AppCompatActivity() {
      * Performs network reset using accessibility service
      */
     private fun performAccessibilityReset() {
-        if (!isAccessibilityServiceEnabled()) {
-            Toast.makeText(
-                this,
-                "Please enable the accessibility service first",
-                Toast.LENGTH_LONG
-            ).show()
-            openAccessibilitySettings()
-            return
-        }
-        
         try {
+            Log.d(TAG, "performAccessibilityReset: Starting accessibility reset")
+            if (!isAccessibilityServiceEnabled()) {
+                Log.w(TAG, "performAccessibilityReset: Accessibility service not enabled")
+                Toast.makeText(
+                    this,
+                    "Please enable the accessibility service first",
+                    Toast.LENGTH_LONG
+                ).show()
+                openAccessibilitySettings()
+                return
+            }
+            
             updateStatus(getString(R.string.status_starting_accessibility))
             accessibilityResetButton.isEnabled = false
             
             // First open the network operator settings
             val settingsIntent = Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS)
             startActivity(settingsIntent)
+            Log.d(TAG, "performAccessibilityReset: Opened network operator settings")
             
             // Then trigger the accessibility service to start processing
             handler.postDelayed({
@@ -454,14 +591,17 @@ class MainActivity : AppCompatActivity() {
                     setPackage(packageName)
                 }
                 sendBroadcast(serviceIntent)
+                Log.d(TAG, "performAccessibilityReset: Sent START_RESET broadcast")
                 
                 // Re-enable button after a delay
                 handler.postDelayed({
                     accessibilityResetButton.isEnabled = true
+                    Log.d(TAG, "performAccessibilityReset: Re-enabled button after timeout")
                 }, 30000) // 30 seconds timeout
             }, 2000) // Wait 2 seconds for settings to open
             
         } catch (e: Exception) {
+            Log.e(TAG, "performAccessibilityReset: Error starting accessibility reset", e)
             handleError("Error starting accessibility reset: ${e.message}", e)
         }
     }
@@ -471,6 +611,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun openAccessibilitySettings() {
         try {
+            Log.d(TAG, "openAccessibilitySettings: Opening accessibility settings")
             val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
             startActivity(intent)
             Toast.makeText(
@@ -479,6 +620,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.LENGTH_LONG
             ).show()
         } catch (e: Exception) {
+            Log.e(TAG, "openAccessibilitySettings: Error opening accessibility settings", e)
             Toast.makeText(
                 this,
                 "Unable to open accessibility settings",

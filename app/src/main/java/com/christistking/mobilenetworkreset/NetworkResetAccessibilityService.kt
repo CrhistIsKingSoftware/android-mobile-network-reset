@@ -147,20 +147,6 @@ class NetworkResetAccessibilityService : AccessibilityService() {
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_START_RESET -> {
-                Log.d(TAG, "Starting network reset process")
-                startProcessing()
-            }
-            ACTION_STOP_RESET -> {
-                Log.d(TAG, "Stopping network reset process")
-                stopProcessing()
-            }
-        }
-        return START_STICKY
-    }
-
     private fun startProcessing() {
         isProcessing = true
         currentStep = Step.WAITING_FOR_SETTINGS

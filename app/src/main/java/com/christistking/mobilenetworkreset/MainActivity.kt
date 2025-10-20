@@ -67,9 +67,9 @@ class MainActivity : AppCompatActivity() {
         statusText = findViewById(R.id.statusText)
         accessibilityStatusText = findViewById(R.id.accessibilityStatusText)
 
-        // Initialize managers
-        telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        accessibilityManager = getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+        // Initialize managers using type-safe getSystemService
+        telephonyManager = getSystemService(TelephonyManager::class.java)
+        accessibilityManager = getSystemService(AccessibilityManager::class.java)
 
         // Set up button click listeners
         resetButton.setOnClickListener {

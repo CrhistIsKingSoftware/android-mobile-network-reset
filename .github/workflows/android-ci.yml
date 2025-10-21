@@ -25,6 +25,10 @@ jobs:
       run: chmod +x gradlew
 
     - name: Build with Gradle
+      env:
+        AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
+        AZURE_STORAGE_CONTAINER: ${{ secrets.AZURE_STORAGE_CONTAINER }}
+        AZURE_STORAGE_SAS_TOKEN: ${{ secrets.AZURE_STORAGE_SAS_TOKEN }}
       run: ./gradlew build
 
     - name: Run lint
@@ -34,6 +38,10 @@ jobs:
       run: ./gradlew test
 
     - name: Build Debug APK
+      env:
+        AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
+        AZURE_STORAGE_CONTAINER: ${{ secrets.AZURE_STORAGE_CONTAINER }}
+        AZURE_STORAGE_SAS_TOKEN: ${{ secrets.AZURE_STORAGE_SAS_TOKEN }}
       run: ./gradlew assembleDebug
 
     - name: Upload Debug APK

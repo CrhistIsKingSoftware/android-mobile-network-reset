@@ -44,7 +44,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="8dp">
+        android:layout_marginBottom="16dp">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/shareButton"
@@ -61,18 +61,10 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="4dp"
-            android:text="Upload"
+            android:text="Upload to Cloud"
             app:icon="@android:drawable/ic_menu_upload" />
 
     </LinearLayout>
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/configureCloudButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:text="Configure Cloud"
-        app:icon="@android:drawable/ic_menu_preferences" />
 
     <ScrollView
         android:id="@+id/scrollView"

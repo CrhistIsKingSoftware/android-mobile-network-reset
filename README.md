@@ -9,7 +9,7 @@ An Android application designed to help users in areas with poor mobile network 
 - 📖 [Quick Setup Guide](QUICK_SETUP_GUIDE.md) - Get started with accessibility service
 - 🔧 [Technical Documentation](ACCESSIBILITY_SERVICE.md) - How the service works
 - 📝 [Logging Enhancements](LOGGING_ENHANCEMENTS.md) - Log management and cloud upload guide
-- ☁️ [Azure Setup Guide](AZURE_SETUP_GUIDE.md) - Step-by-step Azure Blob Storage configuration
+- ☁️ [Azure Deployment Guide](AZURE_DEPLOYMENT_GUIDE.md) - For maintainers: Deploy Azure cloud logging
 - 🛡️ [Security Summary](SECURITY_SUMMARY.md) - Security analysis
 - 💡 [Implementation Details](IMPLEMENTATION.md) - Architecture and design
 - 🤝 [Contributing Guide](CONTRIBUTING.md) - How to contribute
@@ -37,7 +37,7 @@ This app simplifies this tedious manual process with a single button press.
 - **Direct Settings Access**: Quick access to network operator settings
 - **Material Design**: Modern, intuitive user interface
 - **Status Updates**: Real-time feedback during the automated reset process
-- **Comprehensive Logging**: File-based logging with cloud upload support (Azure Blob Storage)
+- **Comprehensive Logging**: File-based logging with automatic cloud upload (when built with credentials)
 - **Log Management**: View, share, and export logs through dedicated interface
 
 ## How It Works
@@ -124,10 +124,13 @@ Download the latest APK from the [Releases](https://github.com/CrhistIsKingSoftw
 1. Tap **"View Logs"** button on the main screen
 2. View all application logs in real-time
 3. Share logs via email or other apps
-4. Configure Azure Blob Storage for automatic cloud upload (see [Azure Setup Guide](AZURE_SETUP_GUIDE.md))
-5. Upload logs manually or enable auto-upload every 24 hours
+4. Upload logs to cloud (if the app was built with Azure credentials)
+
+**Note**: Cloud upload is configured at build time by the app maintainer. If the "Upload to Cloud" button is disabled, use the "Share" button to export logs manually.
 
 For detailed information about logging features, see [LOGGING_ENHANCEMENTS.md](LOGGING_ENHANCEMENTS.md).
+
+**For Maintainers**: See [AZURE_DEPLOYMENT_GUIDE.md](AZURE_DEPLOYMENT_GUIDE.md) to configure automatic cloud logging.
 
 ## Permissions
 

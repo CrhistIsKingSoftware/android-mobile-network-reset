@@ -8,7 +8,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,7 +28,6 @@ class LogsActivity : AppCompatActivity() {
     private lateinit var clearButton: MaterialButton
     private lateinit var shareButton: MaterialButton
     private lateinit var uploadButton: MaterialButton
-    private lateinit var configureCloudButton: MaterialButton
     
     private lateinit var logManager: LogManager
     private lateinit var cloudLogManager: CloudLogManager
@@ -54,7 +52,6 @@ class LogsActivity : AppCompatActivity() {
         clearButton = findViewById(R.id.clearButton)
         shareButton = findViewById(R.id.shareButton)
         uploadButton = findViewById(R.id.uploadButton)
-        configureCloudButton = findViewById(R.id.configureCloudButton)
 
         // Set up button listeners
         refreshButton.setOnClickListener {
@@ -73,12 +70,15 @@ class LogsActivity : AppCompatActivity() {
             uploadLogs()
         }
 
-        configureCloudButton.setOnClickListener {
-            showCloudConfiguration()
+        // Update upload button state based on build-time configuration
+        uploadButton.isEnabled = cloudLogManager.isConfigured()
+        if (!cloudLogManager.isConfigured()) {
+            Toast.makeText(
+                this,
+                "Cloud upload not configured in this build. Contact the developer for a build with cloud logging enabled.",
+                Toast.LENGTH_LONG
+            ).show()
         }
-
-        // Update upload button state
-        updateUploadButtonState()
 
         // Load logs
         refreshLogs()
@@ -175,8 +175,11 @@ class LogsActivity : AppCompatActivity() {
      */
     private fun uploadLogs() {
         if (!cloudLogManager.isConfigured()) {
-            Toast.makeText(this, "Cloud upload not configured. Please configure Azure Storage first.", Toast.LENGTH_LONG).show()
-            showCloudConfiguration()
+            Toast.makeText(
+                this,
+                "Cloud upload not configured in this build. Please share logs manually instead.",
+                Toast.LENGTH_LONG
+            ).show()
             return
         }
 
@@ -187,58 +190,16 @@ class LogsActivity : AppCompatActivity() {
             try {
                 val success = cloudLogManager.uploadAllLogs()
                 if (success) {
-                    Toast.makeText(this@LogsActivity, "Logs uploaded successfully", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@LogsActivity, "Logs uploaded successfully to Azure", Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(this@LogsActivity, "Failed to upload logs. Check configuration.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@LogsActivity, "Failed to upload logs. Please try again.", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error uploading logs", e)
                 Toast.makeText(this@LogsActivity, "Error uploading logs: ${e.message}", Toast.LENGTH_LONG).show()
             } finally {
-                uploadButton.isEnabled = true
+                uploadButton.isEnabled = cloudLogManager.isConfigured()
             }
-        }
-    }
-
-    /**
-     * Shows cloud configuration dialog
-     */
-    private fun showCloudConfiguration() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_cloud_config, null)
-        val accountNameInput = dialogView.findViewById<TextInputEditText>(R.id.accountNameInput)
-        val containerNameInput = dialogView.findViewById<TextInputEditText>(R.id.containerNameInput)
-        val sasTokenInput = dialogView.findViewById<TextInputEditText>(R.id.sasTokenInput)
-
-        AlertDialog.Builder(this)
-            .setTitle("Configure Azure Storage")
-            .setView(dialogView)
-            .setPositiveButton("Save") { _, _ ->
-                val accountName = accountNameInput.text?.toString() ?: ""
-                val containerName = containerNameInput.text?.toString() ?: ""
-                val sasToken = sasTokenInput.text?.toString() ?: ""
-
-                if (accountName.isNotEmpty() && containerName.isNotEmpty() && sasToken.isNotEmpty()) {
-                    cloudLogManager.configureAzureStorage(accountName, containerName, sasToken)
-                    cloudLogManager.setAutoUploadEnabled(true)
-                    updateUploadButtonState()
-                    Toast.makeText(this, "Cloud storage configured successfully", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(this, "Please fill in all fields", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    /**
-     * Updates upload button state based on configuration
-     */
-    private fun updateUploadButtonState() {
-        uploadButton.isEnabled = cloudLogManager.isConfigured()
-        if (cloudLogManager.isConfigured()) {
-            configureCloudButton.text = "Reconfigure Cloud"
-        } else {
-            configureCloudButton.text = "Configure Cloud"
         }
     }
 }

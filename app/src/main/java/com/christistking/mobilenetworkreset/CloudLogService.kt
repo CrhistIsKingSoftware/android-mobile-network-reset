@@ -123,7 +123,7 @@ class AzureBlobStorageService(
 }
 
 /**
- * Manages cloud log uploads with automatic retry and configuration
+ * Manages cloud log uploads with automatic configuration from build-time credentials
  */
 class CloudLogManager(
     private val context: Context,
@@ -133,10 +133,6 @@ class CloudLogManager(
     companion object {
         private const val TAG = "CloudLogManager"
         private const val PREFS_NAME = "cloud_log_prefs"
-        private const val KEY_AZURE_ACCOUNT_NAME = "azure_account_name"
-        private const val KEY_AZURE_CONTAINER_NAME = "azure_container_name"
-        private const val KEY_AZURE_SAS_TOKEN = "azure_sas_token"
-        private const val KEY_AUTO_UPLOAD_ENABLED = "auto_upload_enabled"
         private const val KEY_LAST_UPLOAD_TIME = "last_upload_time"
         
         // Auto-upload interval (24 hours)
@@ -146,47 +142,19 @@ class CloudLogManager(
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     
     /**
-     * Configures Azure Blob Storage for cloud uploads
-     */
-    fun configureAzureStorage(accountName: String, containerName: String, sasToken: String) {
-        prefs.edit().apply {
-            putString(KEY_AZURE_ACCOUNT_NAME, accountName)
-            putString(KEY_AZURE_CONTAINER_NAME, containerName)
-            putString(KEY_AZURE_SAS_TOKEN, sasToken)
-            apply()
-        }
-        Log.i(TAG, "Azure Storage configured")
-    }
-    
-    /**
-     * Checks if cloud upload is configured
+     * Checks if cloud upload is configured (via BuildConfig)
      */
     fun isConfigured(): Boolean {
-        return !prefs.getString(KEY_AZURE_ACCOUNT_NAME, "").isNullOrEmpty() &&
-               !prefs.getString(KEY_AZURE_CONTAINER_NAME, "").isNullOrEmpty() &&
-               !prefs.getString(KEY_AZURE_SAS_TOKEN, "").isNullOrEmpty()
-    }
-    
-    /**
-     * Enables or disables auto-upload
-     */
-    fun setAutoUploadEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_AUTO_UPLOAD_ENABLED, enabled).apply()
-        Log.i(TAG, "Auto-upload ${if (enabled) "enabled" else "disabled"}")
-    }
-    
-    /**
-     * Checks if auto-upload is enabled
-     */
-    fun isAutoUploadEnabled(): Boolean {
-        return prefs.getBoolean(KEY_AUTO_UPLOAD_ENABLED, false)
+        return BuildConfig.AZURE_STORAGE_ACCOUNT.isNotEmpty() &&
+               BuildConfig.AZURE_STORAGE_CONTAINER.isNotEmpty() &&
+               BuildConfig.AZURE_STORAGE_SAS_TOKEN.isNotEmpty()
     }
     
     /**
      * Checks if it's time for auto-upload
      */
     fun shouldAutoUpload(): Boolean {
-        if (!isAutoUploadEnabled() || !isConfigured()) {
+        if (!isConfigured()) {
             return false
         }
         
@@ -196,19 +164,20 @@ class CloudLogManager(
     }
     
     /**
-     * Creates a cloud service instance
+     * Creates a cloud service instance using BuildConfig credentials
      */
     private fun createCloudService(): CloudLogService? {
-        val accountName = prefs.getString(KEY_AZURE_ACCOUNT_NAME, "") ?: ""
-        val containerName = prefs.getString(KEY_AZURE_CONTAINER_NAME, "") ?: ""
-        val sasToken = prefs.getString(KEY_AZURE_SAS_TOKEN, "") ?: ""
-        
-        if (accountName.isEmpty() || containerName.isEmpty() || sasToken.isEmpty()) {
-            Log.w(TAG, "Cloud service not configured")
+        if (!isConfigured()) {
+            Log.w(TAG, "Cloud service not configured - missing Azure credentials in build")
             return null
         }
         
-        return AzureBlobStorageService(context, accountName, containerName, sasToken)
+        return AzureBlobStorageService(
+            context,
+            BuildConfig.AZURE_STORAGE_ACCOUNT,
+            BuildConfig.AZURE_STORAGE_CONTAINER,
+            BuildConfig.AZURE_STORAGE_SAS_TOKEN
+        )
     }
     
     /**

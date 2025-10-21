@@ -2,18 +2,17 @@
 
 ## Overview
 
-The Mobile Network Reset app has been enhanced with comprehensive logging capabilities that allow users to:
+The Mobile Network Reset app includes comprehensive logging capabilities that:
 - Save logs to files on the Android device
-- View and manage logs through a dedicated interface
-- Upload logs to Azure Blob Storage cloud service
-- Share logs via email or other apps
-- Configure automatic cloud log uploads
+- Automatically upload logs to Azure Blob Storage (when configured at build time)
+- Provide a user interface for viewing and sharing logs
+- Enable crash detection and automatic upload
 
 ## Features
 
 ### 1. File-based Logging
 
-All application logs are now saved to internal storage in addition to Android's logcat system. This provides persistent logging that survives app restarts and device reboots.
+All application logs are saved to internal storage in addition to Android's logcat system. This provides persistent logging that survives app restarts and device reboots.
 
 **Key Features:**
 - Automatic log rotation when files exceed 5MB
@@ -23,65 +22,38 @@ All application logs are now saved to internal storage in addition to Android's 
 
 ### 2. Log Viewer Interface
 
-A new "View Logs" button has been added to the main activity that opens a dedicated logs viewer where users can:
+A "View Logs" button on the main activity opens a dedicated logs viewer where users can:
 - View all application logs in a scrollable interface
 - Refresh logs in real-time
 - Clear all logs
-- Share logs via system share dialog
-- Upload logs to cloud storage
-- Configure cloud storage settings
+- Share logs via system share dialog (email, drive, messaging apps, etc.)
+- Upload logs to cloud storage (if configured at build time)
 
 ### 3. Cloud Log Upload (Azure Blob Storage)
 
-The app supports automatic upload of logs to Azure Blob Storage, a free cloud service from Microsoft.
+**Important**: Cloud upload is configured at build time by the app maintainer, not by end users.
+
+The app automatically uploads logs to Azure Blob Storage when:
+- Built with proper Azure credentials (via GitHub Secrets)
+- Every 24 hours (automatic)
+- Immediately when a crash is detected
 
 **Azure Free Tier Benefits:**
 - 5GB storage included free
 - 20,000 read/write operations per month
 - Perfect for application logging needs
 
-**Configuration Steps:**
+**For Developers/Maintainers**: See [AZURE_DEPLOYMENT_GUIDE.md](AZURE_DEPLOYMENT_GUIDE.md) for setup instructions.
 
-1. **Create an Azure Storage Account:**
-   - Go to [Azure Portal](https://portal.azure.com)
-   - Create a free account if you don't have one
-   - Navigate to "Storage accounts" and create a new storage account
-   - Choose the free tier (LRS - Locally Redundant Storage)
-
-2. **Create a Container:**
-   - Open your storage account
-   - Go to "Containers" under "Data storage"
-   - Create a new container (e.g., "mobile-network-reset-logs")
-   - Set public access level to "Private"
-
-3. **Generate a SAS Token:**
-   - In your container, click "Shared access signature"
-   - Set permissions: Write, Add, Create
-   - Set expiry date (e.g., 1 year from now)
-   - Click "Generate SAS token and URL"
-   - Copy the SAS token (starts with "?sv=...")
-
-4. **Configure in the App:**
-   - Open the Mobile Network Reset app
-   - Tap "View Logs"
-   - Tap "Configure Cloud"
-   - Enter:
-     - Storage Account Name: Your Azure storage account name
-     - Container Name: The container you created (e.g., "mobile-network-reset-logs")
-     - SAS Token: The token you generated (include the "?" at the beginning)
-   - Tap "Save"
-
-5. **Upload Logs:**
-   - Tap "Upload" to manually upload logs immediately
-   - Or enable auto-upload to automatically upload logs every 24 hours
+**For End Users**: If the "Upload to Cloud" button is disabled, the app was built without cloud credentials. You can still use the "Share" button to export logs manually.
 
 ### 4. Auto-Upload Feature
 
-Once configured, the app can automatically upload logs to Azure Blob Storage:
-- Uploads occur every 24 hours
-- Triggered automatically when the app starts (if 24 hours have passed)
-- Uploads include all log files combined into a single timestamped file
+When the app is built with Azure credentials:
+- Logs automatically upload every 24 hours when the app is opened
 - Crash logs are uploaded immediately when detected
+- All log files are combined into a single timestamped file
+- Upload happens in the background without user interaction
 
 ### 5. Log Sharing
 
@@ -120,24 +92,23 @@ logManager.exportLogs(outputFile)
 
 ### CloudLogManager Class
 
-The `CloudLogManager` class handles cloud upload configuration and operations:
+The `CloudLogManager` class handles cloud upload operations:
 
 ```kotlin
 val cloudLogManager = CloudLogManager(context, logManager)
 
-// Configure Azure Storage
-cloudLogManager.configureAzureStorage(accountName, containerName, sasToken)
+// Check if configured (at build time)
+val isConfigured = cloudLogManager.isConfigured()
 
-// Enable auto-upload
-cloudLogManager.setAutoUploadEnabled(true)
-
-// Manual upload
+// Manual upload (if configured)
 cloudLogManager.uploadAllLogs()
 cloudLogManager.uploadCurrentLog()
 
 // Auto-upload check
 cloudLogManager.performAutoUploadIfNeeded()
 ```
+
+Note: Configuration is done at build time via BuildConfig, not at runtime by users.
 
 ### CloudLogService Interface
 
@@ -182,10 +153,10 @@ Each log entry includes:
    - Logs are cleared when the app is uninstalled
 
 2. **Cloud Upload:**
-   - SAS tokens are stored securely in SharedPreferences
-   - Communication with Azure uses HTTPS
-   - SAS tokens can be configured with limited permissions (write-only)
-   - Set appropriate expiry dates on SAS tokens
+   - Azure credentials are embedded at build time (not stored on device)
+   - Communication with Azure uses HTTPS only
+   - SAS tokens configured with limited permissions (write-only recommended)
+   - Tokens set with appropriate expiry dates
 
 3. **Log Sharing:**
    - Users are in control of when and how logs are shared
@@ -195,22 +166,19 @@ Each log entry includes:
 
 ### Cloud Upload Issues
 
-**Error: "Failed to upload logs. Check configuration."**
-- Verify your Azure storage account name is correct
-- Ensure the container exists
-- Check that the SAS token is valid and hasn't expired
-- Verify the SAS token has write permissions
+**"Upload to Cloud" button is disabled:**
+- The app was built without Azure credentials
+- Use the "Share" button to export logs manually
+- Contact the app maintainer for a build with cloud logging enabled
+
+**Error: "Failed to upload logs. Please try again."**
 - Check your internet connection
+- Verify you're connected to WiFi or have mobile data enabled
+- Try again later
 
-**Error: "Response code: 403"**
-- SAS token doesn't have required permissions
-- SAS token has expired
-- Container access policy has changed
-
-**Error: "Response code: 404"**
-- Container name is incorrect
-- Container doesn't exist
-- Storage account name is incorrect
+**Upload works but logs don't appear in Azure:**
+- Verify with app maintainer that Azure container exists
+- Check that credentials haven't expired
 
 ### Log File Issues
 
@@ -245,11 +213,13 @@ Each log entry includes:
    - Health information
    - Any sensitive user data
 
-4. **Cloud Upload Configuration:**
-   - Use limited SAS token permissions (write-only)
-   - Set reasonable expiry dates (6-12 months)
-   - Regenerate tokens periodically
-   - Consider enabling auto-upload for continuous monitoring
+## For Developers/Maintainers
+
+See [AZURE_DEPLOYMENT_GUIDE.md](AZURE_DEPLOYMENT_GUIDE.md) for:
+- Setting up Azure Blob Storage
+- Configuring GitHub Secrets
+- Building with cloud logging enabled
+- Managing and rotating credentials
 
 ## Future Enhancements
 

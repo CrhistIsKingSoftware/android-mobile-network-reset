@@ -27,6 +27,7 @@ class NetworkResetAccessibilityService : AccessibilityService() {
     private var isProcessing = false
     private var currentStep = Step.IDLE
     private var commandReceiver: BroadcastReceiver? = null
+    private lateinit var logManager: LogManager
     
     companion object {
         private const val TAG = "NetworkResetA11yService"
@@ -67,6 +68,8 @@ class NetworkResetAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        logManager = LogManager.getInstance(this)
+        logManager.i(TAG, "Accessibility service connected")
         Log.d(TAG, "Accessibility service connected")
         
         val info = AccessibilityServiceInfo().apply {
@@ -90,10 +93,12 @@ class NetworkResetAccessibilityService : AccessibilityService() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 when (intent?.action) {
                     ACTION_START_RESET -> {
+                        logManager.i(TAG, "Starting network reset process")
                         Log.d(TAG, "Starting network reset process")
                         startProcessing()
                     }
                     ACTION_STOP_RESET -> {
+                        logManager.i(TAG, "Stopping network reset process")
                         Log.d(TAG, "Stopping network reset process")
                         stopProcessing()
                     }
@@ -117,6 +122,7 @@ class NetworkResetAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (!isProcessing || event == null) return
         
+        logManager.d(TAG, "Event: ${event.eventType}, Package: ${event.packageName}, Step: $currentStep")
         Log.d(TAG, "Event: ${event.eventType}, Package: ${event.packageName}, Step: $currentStep")
         
         // Handle different steps based on current state
@@ -131,6 +137,7 @@ class NetworkResetAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
+        logManager.w(TAG, "Service interrupted")
         Log.d(TAG, "Service interrupted")
         stopProcessing()
     }
@@ -329,6 +336,7 @@ class NetworkResetAccessibilityService : AccessibilityService() {
     }
 
     private fun broadcastStatus(status: String, step: Step) {
+        logManager.i(TAG, "Status: $status, Step: $step")
         Log.d(TAG, "Status: $status, Step: $step")
         val intent = Intent(BROADCAST_STATUS_UPDATE).apply {
             putExtra(EXTRA_STATUS, status)

@@ -19,6 +19,10 @@ import android.widget.TextView
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * MainActivity for the Mobile Network Reset application.
@@ -30,6 +34,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var resetButton: MaterialButton
     private lateinit var settingsButton: MaterialButton
+    private lateinit var viewLogsButton: MaterialButton
     private lateinit var accessibilityResetButton: MaterialButton
     private lateinit var enableAccessibilityButton: MaterialButton
     private lateinit var statusText: TextView
@@ -38,6 +43,9 @@ class MainActivity : AppCompatActivity() {
     private var accessibilityManager: AccessibilityManager? = null
     private val handler = Handler(Looper.getMainLooper())
     private var isReceiverRegistered = false
+    private lateinit var logManager: LogManager
+    private lateinit var cloudLogManager: CloudLogManager
+    private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -59,10 +67,15 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Initialize log manager
+        logManager = LogManager.getInstance(this)
+        cloudLogManager = CloudLogManager(this, logManager)
+        
         // Set up global exception handler to log crashes
         setupCrashLogging()
         
         try {
+            logManager.i(TAG, "onCreate: Starting MainActivity initialization")
             Log.d(TAG, "onCreate: Starting MainActivity initialization")
             setContentView(R.layout.activity_main)
 
@@ -70,6 +83,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 resetButton = findViewById(R.id.resetButton)
                 settingsButton = findViewById(R.id.settingsButton)
+                viewLogsButton = findViewById(R.id.viewLogsButton)
                 accessibilityResetButton = findViewById(R.id.accessibilityResetButton)
                 enableAccessibilityButton = findViewById(R.id.enableAccessibilityButton)
                 statusText = findViewById(R.id.statusText)
@@ -128,6 +142,16 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             
+            viewLogsButton.setOnClickListener {
+                try {
+                    openLogsActivity()
+                } catch (e: Exception) {
+                    logManager.e(TAG, "Error in viewLogsButton click", e)
+                    Log.e(TAG, "Error in viewLogsButton click", e)
+                    Toast.makeText(this, "Error opening logs: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            
             accessibilityResetButton.setOnClickListener {
                 try {
                     performAccessibilityReset()
@@ -150,6 +174,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 checkLocationPermission()
             } catch (e: Exception) {
+                logManager.e(TAG, "onCreate: Error checking location permission", e)
                 Log.e(TAG, "onCreate: Error checking location permission", e)
             }
             
@@ -157,9 +182,21 @@ class MainActivity : AppCompatActivity() {
             try {
                 updateAccessibilityServiceStatus()
             } catch (e: Exception) {
+                logManager.e(TAG, "onCreate: Error updating accessibility service status", e)
                 Log.e(TAG, "onCreate: Error updating accessibility service status", e)
             }
             
+            // Perform auto-upload if needed
+            activityScope.launch {
+                try {
+                    cloudLogManager.performAutoUploadIfNeeded()
+                } catch (e: Exception) {
+                    logManager.e(TAG, "onCreate: Error during auto-upload", e)
+                    Log.e(TAG, "onCreate: Error during auto-upload", e)
+                }
+            }
+            
+            logManager.i(TAG, "onCreate: MainActivity initialization completed successfully")
             Log.d(TAG, "onCreate: MainActivity initialization completed successfully")
         } catch (e: Exception) {
             Log.e(TAG, "onCreate: Fatal error during initialization", e)
@@ -178,6 +215,20 @@ class MainActivity : AppCompatActivity() {
     private fun setupCrashLogging() {
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            val crashMessage = buildString {
+                append("=== UNCAUGHT EXCEPTION ===\n")
+                append("Thread: ${thread.name}\n")
+                append("Exception: ${throwable.javaClass.name}\n")
+                append("Message: ${throwable.message}\n")
+                append("Stack trace:\n")
+                throwable.stackTrace.forEach { element ->
+                    append("  at $element\n")
+                }
+                append("=== END UNCAUGHT EXCEPTION ===")
+            }
+            
+            // Log to file and logcat
+            logManager.e(TAG, crashMessage, throwable)
             Log.e(TAG, "=== UNCAUGHT EXCEPTION ===", throwable)
             Log.e(TAG, "Thread: ${thread.name}")
             Log.e(TAG, "Exception: ${throwable.javaClass.name}")
@@ -187,6 +238,15 @@ class MainActivity : AppCompatActivity() {
                 Log.e(TAG, "  at $element")
             }
             Log.e(TAG, "=== END UNCAUGHT EXCEPTION ===")
+            
+            // Try to upload crash log immediately
+            try {
+                activityScope.launch {
+                    cloudLogManager.uploadCurrentLog()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to upload crash log", e)
+            }
             
             // Call the default handler to let the system handle the crash
             defaultHandler?.uncaughtException(thread, throwable)
@@ -627,5 +687,13 @@ class MainActivity : AppCompatActivity() {
                 Toast.LENGTH_SHORT
             ).show()
         }
+    }
+    
+    /**
+     * Opens the logs activity
+     */
+    private fun openLogsActivity() {
+        val intent = Intent(this, LogsActivity::class.java)
+        startActivity(intent)
     }
 }
